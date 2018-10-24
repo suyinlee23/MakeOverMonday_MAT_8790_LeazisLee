@@ -1,0 +1,64 @@
+---
+title: "Makeover Monday"
+author: "Andreas Lezis"
+date: "October 21, 2018"
+output: html_document
+---
+
+```{r setup echo=FALSE}
+library(tidyverse)
+```
+
+#Read in data
+
+```{r}
+#where is your file saved?
+andreas_filepath <- 'C:\\Users\\drey\\Desktop\\School\\DataViz\\DataSets\\makeovermonday.csv'
+suyin_filepath <- ''
+
+current_user_filepath <- andreas_filepath
+
+MM <- read_csv(current_user_filepath)
+head(MM)
+#I don't like the spaces in these columns, will rename:
+MM %>% rename(TravelTime = 'Raw travel time') -> MM
+MM %>% rename(TicketPrice = 'Ticket price') -> MM
+```
+
+#Descriptive Stats
+
+```{r}
+#Let's see what we are dealing with:
+
+#Any missings?
+sum(is.na(MM)) #0, so there are no NAs
+
+MM %>%
+  group_by(Route) %>%
+  summarize(city_tuple = n_distinct(Route)) #6, just like in the graph.
+
+#Mode should always have 6 plane, 6 train for each city tuple:
+MM %>%
+  group_by(Route,Mode) %>%
+  summarize(city_tuple = n()) #It does.
+
+#Summaries for the cost variables
+#Note that Eco Cost & Raw travel time are always the same w/in each city/Mode dyad
+MM %>% 
+  group_by(Route,Mode) %>%
+  summarize(CO2_Produced = first(EcoPassengerCO2),
+            Time_Spent = first(TravelTime),
+            Price_Min = min(TicketPrice),
+            Price_Max = max(TicketPrice),
+            Price_Med = quantile(TicketPrice,names = FALSE,probs=0.5),
+            Price_Avg = mean(TicketPrice),
+            Price_StD = sd(TicketPrice))
+```
+
+#Visualizing some of the data
+
+```{r}
+#Easier to look at than the table above.
+ggplot(MM) + geom_line(aes(-WeeksAhead,TicketPrice,color=Route,linetype=Mode))
+```
+
