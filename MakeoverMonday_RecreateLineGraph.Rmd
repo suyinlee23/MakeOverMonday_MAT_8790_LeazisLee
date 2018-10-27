@@ -1,0 +1,62 @@
+---
+title: "MakeOverMonday"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(dplyr)
+library(ggplot2)
+library(scales)
+library(gridExtra)
+library(grid)
+```
+
+Load in data
+```{r}
+ticket_plane_price<-read.csv("dw_ticket_prices_planes_vs_trains_diffroutes.csv")
+str(ticket_plane_price)
+
+#Add in distance variable
+ticket_plane_price$Distance[ticket_plane_price$Route=="Zurich-Milan"]<-217
+ticket_plane_price$Distance[ticket_plane_price$Route=="London-Amsterdam"]<-357
+ticket_plane_price$Distance[ticket_plane_price$Route=="Berlin-Warsaw"]<-517
+ticket_plane_price$Distance[ticket_plane_price$Route=="Paris-Barcelona"]<-826
+ticket_plane_price$Distance[ticket_plane_price$Route=="Munich-Budapest"]<-562
+ticket_plane_price$Distance[ticket_plane_price$Route=="London-Marseille"]<-977
+```
+
+Recreate main line graphs for MakeOver Monday Visual
+```{r}
+#create list of custom labels for facet grid
+route_labels<-c(
+                'Zurich-Milan'="Zurich - Milan \n 217 km",
+                'London-Amsterdam'="London - Amsterdam \n 357 km",
+                'Berlin-Warsaw'="Berlin - Warsaw \n 517 km",
+                'Paris-Barcelona'="Paris - Barcelona \n 826 km",
+                'Munich-Budapest'="Munich - Budapest \n 562 km",
+                'London-Marseille'="London - Marseilles \n 977 km")
+
+ggplot(data = transform(ticket_plane_price,
+                        Route = factor(Route, levels=c("Zurich-Milan",
+                                                       "London-Amsterdam",
+                                                       "Berlin-Warsaw",
+                                                       "Paris-Barcelona",
+                                                       "Munich-Budapest",
+                                                       "London-Marseille"))))+
+  geom_line(aes(x=WeeksAhead,y=Ticket.price, color = Mode), size=1.5)+
+  labs(title = "Planes not always cheaper than trains",
+       subtitle="Ticket prices for planes and trains on different routes",
+       x="Weeks booked ahead", y=element_blank(),
+       caption="Source:Google Flights, Trainline, DW analysis")+
+  facet_wrap(~Route, ncol=2, labeller = labeller(Route=route_labels))+
+  scale_y_continuous(breaks=c(200,400),
+                     labels=dollar_format(prefix=element_blank(),suffix="€"))+
+  scale_x_reverse(breaks=c(6,5,4,3,2,1))+
+  theme_bw()+
+  theme(strip.background = element_rect(fill="transparent", color="transparent"),
+        strip.text = element_text(size=10,face="bold"),
+        legend.position = "none")
+```
+
+
+
