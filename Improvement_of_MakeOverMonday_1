@@ -1,0 +1,69 @@
+```{r}
+raw_diff_fn<-function(x,y) (y-x)
+perc_diff_fn<-function(x,y) round((((y-x)/x)),1)
+
+#Calculate and explore percent difference relative to week 1 prices
+#Change long to wide 
+ticket_plane_price_wide<- ticket_plane_price %>% 
+                          select(-Raw.travel.time,-EcoPassengerCO2,-Distance) %>% 
+                          group_by(Route,Mode) %>% 
+                          spread(key=WeeksAhead, value=Ticket.price) %>%
+                          setNames(c("Route","Mode","Ticket_price_Wk_1",
+                                     "Ticket_price_Wk_2","Ticket_price_Wk_3",
+                                     "Ticket_price_Wk_4","Ticket_price_Wk_5",
+                                     "Ticket_price_Wk_6")) %>%
+                          mutate(raw_increase_wk_6=raw_diff_fn(Ticket_price_Wk_1,Ticket_price_Wk_6),
+                                 raw_increase_wk_5=raw_diff_fn(Ticket_price_Wk_1,Ticket_price_Wk_5),
+                                 raw_increase_wk_4=raw_diff_fn(Ticket_price_Wk_1,Ticket_price_Wk_4),
+                                 raw_increase_wk_3=raw_diff_fn(Ticket_price_Wk_1,Ticket_price_Wk_3),
+                                 raw_increase_wk_2=raw_diff_fn(Ticket_price_Wk_1,Ticket_price_Wk_2),
+                                 raw_increase_wk_1=raw_diff_fn(Ticket_price_Wk_1,Ticket_price_Wk_1),
+                                 perc_increase_wk_6=perc_diff_fn(Ticket_price_Wk_1,Ticket_price_Wk_6),
+                                 perc_increase_wk_5=perc_diff_fn(Ticket_price_Wk_1,Ticket_price_Wk_5),
+                                 perc_increase_wk_4=perc_diff_fn(Ticket_price_Wk_1,Ticket_price_Wk_4),
+                                 perc_increase_wk_3=perc_diff_fn(Ticket_price_Wk_1,Ticket_price_Wk_3),
+                                 perc_increase_wk_2=perc_diff_fn(Ticket_price_Wk_1,Ticket_price_Wk_2),
+                                 perc_increase_wk_1 =perc_diff_fn(Ticket_price_Wk_1,Ticket_price_Wk_1)
+                                 )
+ticket_plane_price_long<-ticket_plane_price_wide %>% gather(key=Type, value=measurement,3:20)
+ticket_plane_price_long_restr<-ticket_plane_price_long %>% 
+                                filter(Type %in% c("perc_increase_wk_6",
+                                                   "perc_increase_wk_5",
+                                                   "perc_increase_wk_4",
+                                                    "perc_increase_wk_3",
+                                                    "perc_increase_wk_2")) %>%
+                                separate(Type,c("perc_increase_wk","WeeksAhead"),"_wk_")
+
+#WeeksAhead is stored as a character. Need to change this to numeric
+ticket_plane_price_long_restr$WeeksAhead<-as.numeric(ticket_plane_price_long_restr$WeeksAhead)
+
+#plot percent increase
+p2<-ggplot(data = transform(ticket_plane_price_long_restr,
+                        Route = factor(Route, levels=c("Zurich-Milan",
+                                                       "London-Amsterdam",
+                                                       "Berlin-Warsaw",
+                                                       "Paris-Barcelona",
+                                                       "Munich-Budapest",
+                                                       "London-Marseille"))))+
+    labs(title = "Planes not always cheaper than trains",
+       subtitle="Ticket prices for planes and trains on different routes",
+       x="Weeks Ahead of Departure", y="Percent Change in Ticket Price",
+       caption="Source:Google Flights, Trainline, DW analysis")+
+  geom_bar(aes(x=WeeksAhead,y=measurement,fill=Mode),stat="identity", position="dodge")+
+  facet_wrap(~Route, ncol=2, labeller = labeller(Route=route_labels))+
+  scale_y_continuous(breaks=seq(-1.0,0.20,by=0.10), labels=percent)+
+  scale_x_reverse(breaks=c(6,5,4,3,2))+
+  theme_bw()+
+  theme(strip.background = element_rect(fill="transparent", color="transparent"),
+        strip.text = element_text(size=10,face="bold"),
+        legend.position = "top",
+        axis.ticks.y = element_blank(),
+        plot.caption=element_text(hjust =0.5))+
+  geom_text(aes(x=WeeksAhead, y =measurement, 
+                label=sprintf("%1.0f%%",100*measurement), color=Mode),
+            vjust=1,position=position_dodge(0.9))
+```
+
+
+
+
