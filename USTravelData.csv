@@ -1,0 +1,13 @@
+Route,Mode,TravelTime,TicketPrice,Distance
+Los Angeles-San Diego,Train,165,35.1,112
+Los Angeles-San Diego,Plane,46,136,112
+Boston-DC,Train,408,188,395
+Boston-DC,Plane,103,64,395
+New York-Philadelphia,Train,74,60,93
+New York-Philadelphia,Plane,67,350,93
+Pittsburgh-Chicago,Train,586,72,410
+Pittsburgh-Chicago,Plane,97,100,410
+Seattle-Minneapolis,Train,2223,138,1391
+Seattle-Minneapolis,Plane,372,130,1391
+New York-Savannah,Train,900,136,806
+New York-Savannah,Plane,140,68,806
