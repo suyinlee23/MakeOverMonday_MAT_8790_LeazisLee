@@ -7,6 +7,19 @@ output: html_document
 
 ```{r setup echo=FALSE}
 library(tidyverse)
+library(hms)
+library(lubridate)
+library(stringi)
+#install.packages('devtools')
+#install.packages('png')
+#install.packages('progress')
+#install.packages('gifski')
+library(png)
+library(progress)
+library(gifski)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
 ```
 
 #Read in data
@@ -23,6 +36,9 @@ head(MM)
 #I don't like the spaces in these columns, will rename:
 MM %>% rename(TravelTime = 'Raw travel time') -> MM
 MM %>% rename(TicketPrice = 'Ticket price') -> MM
+
+str(MM)
+MM
 ```
 
 #Descriptive Stats
@@ -60,5 +76,167 @@ MM %>%
 ```{r}
 #Easier to look at than the table above.
 ggplot(MM) + geom_line(aes(-WeeksAhead,TicketPrice,color=Route,linetype=Mode))
+```
+
+```{r}
+#The time graph
+
+MM <- MM %>% mutate(Route = factor(Route, levels=c("London-Marseille",
+                                                   "Paris-Barcelona",
+                                                   "Munich-Budapest",
+                                                   "Berlin-Warsaw",
+                                                   "London-Amsterdam",
+                                                   "Zurich-Milan")))
+
+#arrange(MM,Route)
+
+MM_grouped_route <- MM %>% 
+  group_by(Route) %>%
+  summarize(LowTT = min(TravelTime),HiTT = max(TravelTime))
+
+MM_group_route_mode <- MM %>% 
+  group_by(Route,Mode) %>%
+  summarize(TypicalTT = mean(TravelTime))
+
+#Characters to label the times (in minutes, as integers):
+thetimes = c('0:30','1:00','1:30','2:00','2:30','3:00','3:30','4:00','4:30','5:00','5:30','6:00','6:30','7:00')
+
+#To label the city dyads w/ line breaks in them (lol)
+thecitieslabels=c("London\n-Marseille",
+                  "Paris\n-Barcelona",
+                  "Munich\n-Budapest",
+                  "Berlin\n-Warsaw",
+                  "London\n-Amsterdam",
+                  "Zurich\n-Milan")
+
+ggplot() + geom_segment(data = MM_grouped_route, aes(x=LowTT,xend=HiTT,y=Route,yend=Route),linetype = 2) +
+  geom_point(data = MM_group_route_mode, aes(x=TypicalTT,y= Route,color=Mode),size=5) + 
+  ggtitle("Difference in travel Time: Displayed", subtitle = "Journey time in hours") + 
+  scale_x_continuous(breaks = seq(30,7*60,by=30), labels = thetimes, limits = c(30,425), expand = c(0,0),position="top") +
+  scale_y_discrete(labels = thecitieslabels) + 
+  theme_bw()+
+  theme(strip.background = element_rect(fill="transparent", color="transparent"),
+        strip.text = element_text(size=10,face="bold"),
+        legend.position = "top",axis.ticks.y = element_blank(),plot.caption=element_text(hjust = 0),
+        panel.grid.major.y = element_blank(), panel.grid.minor.y = element_blank(), panel.border = element_blank(),
+        panel.grid.minor.x = element_blank(), panel.background = element_rect(fill = "#F2F3F5", colour = "#F2F3F5")) + 
+  labs(caption = "Typical journey time for fastest direct connection\n\n\nSource: Google Flights, Trainline, GoEuro \u00A9 DW"
+       ,x= element_blank(), y= element_blank())
+
+#ggsave('base_time_graph_displayed.png', path = 'C:\\Users\\drey\\Desktop\\School\\DataViz')
+
+
+```
+
+```{r}
+#Second graph - w/ 3 hour assumption for flights
+MM_3hrs <- MM %>% mutate(TT_3hrs = ifelse(Mode=='Plane',TravelTime+(3*60),TravelTime))
+
+MM_grouped_route_3hrs <- MM_3hrs %>% 
+  group_by(Route) %>%
+  summarize(LowTT = min(TT_3hrs),HiTT = max(TT_3hrs))
+
+MM_group_route_mode_3hrs <- MM_3hrs %>% 
+  group_by(Route,Mode) %>%
+  summarize(Typical_TT_3hrs = mean(TT_3hrs))
+
+ggplot() + geom_segment(data = MM_grouped_route_3hrs, aes(x=LowTT,xend=HiTT,y=Route,yend=Route),linetype = 2) +
+  geom_point(data = MM_group_route_mode_3hrs, aes(x=Typical_TT_3hrs,y= Route,color=Mode),size=5) + 
+  ggtitle("Difference in travel Time: Actual", subtitle = "Journey time in hours") + 
+  scale_x_continuous(breaks = seq(30,7*60,by=30), labels = thetimes, limits = c(30,425), expand = c(0,0),position="top") +
+  scale_y_discrete(labels = thecitieslabels) + 
+  theme_bw()+
+  theme(strip.background = element_rect(fill="transparent", color="transparent"),
+        strip.text = element_text(size=10,face="bold"),
+        legend.position = "top",axis.ticks.y = element_blank(),plot.caption=element_text(hjust = 0),
+        panel.grid.major.y = element_blank(), panel.grid.minor.y = element_blank(), panel.border = element_blank(),
+        panel.grid.minor.x = element_blank(), panel.background = element_rect(fill = "#F2F3F5", colour = "#F2F3F5")) + 
+  labs(caption = "Typical journey time for fastest direct connection\nPlus three hours for airport transit\n\nSource: Google Flights, Trainline, GoEuro \u00A9 DW"
+       ,x= element_blank(), y= element_blank())
+
+#ggsave('base_time_graph_actual.png', path = 'C:\\Users\\drey\\Desktop\\School\\DataViz')
+```
+
+```{r}
+#Let's see if we can animate the 2 above plots
+
+devtools::install_github('thomasp85/gganimate') #this will ask you if you want to update certain packages - update packages 5 & 12 as they are required for gganimate
+
+#gganimate works by adding a new aesthetic - "frame" (i.e. the frame number). Should be easy enough to make a 2 frame graphic!
+#This means I need to set up the data a particular way...
+
+#Dis stands for "Displayed" and Act for "Actual" time
+delay_assumption = 3 #Bc I want to change this later
+MM %>% 
+  select(Route,Mode,TravelTime) %>%
+  dplyr::rename(Dis.TT = TravelTime) %>%
+  mutate(Act.TT = ifelse(Mode == "Plane", Dis.TT + (delay_assumption*60),Dis.TT)) %>%
+  group_by(Route,Mode) %>%
+  summarize(Act.TT = mean(Act.TT),Dis.TT=mean(Dis.TT)) %>%
+  gather(key,value,3:4) %>%
+  unite(Mode.key,Mode,key) %>%
+  spread(Mode.key,value) -> tempdf
+
+MM_temp <- bind_rows(replicate(2, tempdf, simplify = FALSE))
+
+MM_temp %>%
+  arrange(Route) %>%
+  mutate(frame = c(1,2), frame_title = c('Displayed','Actual')) %>%
+  mutate(LineBeg = ifelse(frame == 1, min(Plane_Dis.TT, Train_Dis.TT), min(Plane_Act.TT, Train_Act.TT))) %>%
+  mutate(LineEnd = ifelse(frame == 1, max(Plane_Dis.TT, Train_Dis.TT), max(Plane_Act.TT, Train_Act.TT))) %>%
+  mutate(Red_Dot_Value = ifelse(frame == 1, Plane_Dis.TT, Plane_Act.TT), 
+         Blue_Dot_Value = ifelse(frame == 1, Train_Dis.TT, Train_Act.TT)) -> MM_animate
+
+MM_temp2 <- bind_rows(replicate(2, MM_group_route_mode, simplify = FALSE))
+MM_temp2 %>%
+  arrange(Route) %>%
+  group_by(Route) %>%
+  mutate(frame = c(1,1,2,2), frame_title = c('Displayed','Displayed','Actual','Actual')) %>%
+  group_by(Route,Mode,frame) %>%
+  mutate(TypicalTT = ifelse(frame == 2 && Mode == 'Plane',TypicalTT + (60*delay_assumption),TypicalTT)) -> MM_animate_dots
+
+#Surely there was an easier way to do the above? Don't care, got the job done.   
+
+ggplot() + geom_segment(data = MM_animate, aes(x=LineBeg,xend=LineEnd,y=Route,yend=Route),linetype = 2) +
+  geom_point(data = MM_animate_dots, aes(x=TypicalTT,y= Route,color=Mode),size=5) + 
+  scale_x_continuous(breaks = seq(30,7*60,by=30), labels = thetimes, limits = c(30,425), expand = c(0,0),position="top") +
+  scale_y_discrete(labels = thecitieslabels) + 
+  theme_bw()+
+  theme(strip.background = element_rect(fill="transparent", color="transparent"),
+        strip.text = element_text(size=10,face="bold"),
+        legend.position = "top",axis.ticks.y = element_blank(),plot.caption=element_text(hjust = 0),
+        panel.grid.major.y = element_blank(), panel.grid.minor.y = element_blank(), panel.border = element_blank(),
+        panel.grid.minor.x = element_blank(), panel.background = element_rect(fill = "#F2F3F5", colour = "#F2F3F5")) + 
+  labs(caption = "Typical journey time for fastest direct connection\n'\n'Actual' factors in assumed 3 hours for travel to airport & security checks\nSource: Google Flights, Trainline, GoEuro \u00A9 DW"
+       ,x= element_blank(), y= element_blank()) + 
+  labs(title = 'Difference in travel time: {current_frame}', subtitle = "Journey time in hours") +
+  gganimate::transition_manual(frame_title)
+
+#gganimate::anim_save('animated_original.gif', path = 'C:\\Users\\drey\\Desktop\\School\\DataViz')
+```
+
+```{r}
+#Improvements to this animation?
+#How about something to show the assumptions built in?
+
+#copied from "displayed" chunk above. The second geom_point is supposed to be invisible, it is for the legend.
+ggplot() + geom_errorbarh(data=filter(MM_group_route_mode,Mode=="Plane"),
+                          mapping = aes(xmin=TypicalTT, xmax=TypicalTT+(3*60), y=Route), 
+                          size=2, color="red") +
+  geom_point(data = filter(MM_group_route_mode,Mode=="Train"), aes(x=TypicalTT,y= Route),size=5,color="blue") + 
+  ggtitle("Difference in travel Time: Displayed", subtitle = "Journey time in hours") + 
+  scale_x_continuous(breaks = seq(30,7*60,by=30), labels = thetimes, limits = c(30,425), expand = c(0,0),position="top") +
+  scale_y_discrete(labels = thecitieslabels) + 
+  theme_bw()+
+  theme(strip.background = element_rect(fill="transparent", color="transparent"),
+        strip.text = element_text(size=10,face="bold"),
+        axis.ticks.y = element_blank(),plot.caption=element_text(hjust = 0),
+        panel.grid.major.y = element_blank(), panel.grid.minor.y = element_blank(), panel.border = element_blank(),
+        panel.grid.minor.x = element_blank(), panel.background = element_rect(fill = "#F2F3F5", colour = "#F2F3F5")) + 
+  labs(caption = "Typical journey time for fastest direct connection\n\n\nSource: Google Flights, Trainline, GoEuro \u00A9 DW"
+       ,x= element_blank(), y= element_blank())
+
+#ggsave('delay_assumption_graph.png', path = 'C:\\Users\\drey\\Desktop\\School\\DataViz')
+
 ```
 
