@@ -1,8 +1,10 @@
+Looking at price difference over time by plane vs. train
 ```{r}
+
+#create function to calculate relative difference and percent difference
 raw_diff_fn<-function(x,y) (y-x)
 perc_diff_fn<-function(x,y) round((((y-x)/x)),1)
 
-#Calculate and explore percent difference relative to week 1 prices
 #Change long to wide 
 ticket_plane_price_wide<- ticket_plane_price %>% 
                           select(-Raw.travel.time,-EcoPassengerCO2,-Distance) %>% 
@@ -40,43 +42,15 @@ ticket_plane_price_long_restr$WeeksAhead<-as.numeric(ticket_plane_price_long_res
 #plot percent increase
 p2<-ggplot(data = transform(ticket_plane_price_long_restr,
                         Route = factor(Route, levels=c("Zurich-Milan",
-                                                       "London-Amsterdam",
-                                                       "Berlin-Warsaw",
                                                        "Paris-Barcelona",
-                                                       "Munich-Budapest",
-                                                       "London-Marseille"))))+
-    labs(title = "Planes not always cheaper than trains",
-       subtitle="Ticket prices for planes and trains on different routes",
-       x="Weeks Ahead of Departure", y="Percent Change in Ticket Price",
-       caption="Source:Google Flights, Trainline, DW analysis")+
-  geom_bar(aes(x=WeeksAhead,y=measurement,fill=Mode),stat="identity", position="dodge")+
-  facet_wrap(~Route, ncol=2, labeller = labeller(Route=route_labels))+
-  scale_y_continuous(breaks=seq(-1.0,0.20,by=0.10), labels=percent)+
-  scale_x_reverse(breaks=c(6,5,4,3,2))+
-  theme_bw()+
-  theme(strip.background = element_rect(fill="transparent", color="transparent"),
-        strip.text = element_text(size=10,face="bold"),
-        legend.position = "top",
-        axis.ticks.y = element_blank(),
-        plot.caption=element_text(hjust =0.5))+
-  geom_text(aes(x=WeeksAhead, y =measurement, 
-                label=sprintf("%1.0f%%",100*measurement), color=Mode),
-            vjust=1,position=position_dodge(0.9))
-            
-#Added padding to x and y axis
-#Edited data labels positioning
-#Edited legend and titles
-p2<-ggplot(data = transform(ticket_plane_price_long_restr,
-                        Route = factor(Route, levels=c("Zurich-Milan",
-                                                       "London-Amsterdam",
                                                        "Berlin-Warsaw",
-                                                       "Paris-Barcelona",
                                                        "Munich-Budapest",
+                                                       "London-Amsterdam",
                                                        "London-Marseille"))))+
-    labs(title = "Planes not always cheaper than trains",
-       subtitle="The Change in Ticket prices Compared to Ticket Purchase 1 Week Prior for planes and trains on different routes",
+    labs(title = "Train vs. Plane: When is the best time to buy tickets?",
+       subtitle="The change in ticket prices compared to ticket prices 1 Week prior to departure \nfor planes and trains on different routes",
        x="Weeks Ahead of Departure", y="Percent Change in \n Ticket Price Compared to 1 Week Prior",
-       caption="Weekly average price in euros for cheapest \ndaily one-way connection\n\nSource: Google Flights, Trainline, DW analysis\nData collected August 2018")+
+       caption="Percent difference calculated for weekly average price in euros for cheapest \ndaily one-way connection with reference to the price for the 1 week before departure\n\nSource: Google Flights, Trainline, DW analysis\nData collected August 2018")+
   guides(fill=guide_legend(title="Mode of Travel"))+
   geom_bar(aes(x=WeeksAhead,y=measurement,fill=Mode),stat="identity", position="dodge")+
   facet_wrap(~Route, ncol=2, labeller = labeller(Route=route_labels), scales="fixed")+
@@ -85,6 +59,7 @@ p2<-ggplot(data = transform(ticket_plane_price_long_restr,
   theme_classic()+
   theme(strip.background = element_rect(fill="transparent", color="transparent"),
         strip.text = element_text(size=10,face="bold"),
+        plot.title = element_text(face="bold"),
         legend.position = "top",
         axis.ticks.y = element_line(color = "black"),
         axis.line.x = element_line(color = "black"),
@@ -92,10 +67,10 @@ p2<-ggplot(data = transform(ticket_plane_price_long_restr,
         panel.border=element_rect(color="black", fill=NA, size=0.5))+
   geom_text(aes(x=WeeksAhead, y =measurement+(sign(measurement)/10), 
                 label=paste(100*measurement,"%"), color=Mode),
-            position=position_dodge(0.9), show.legend = FALSE)+ 
+            position=position_dodge(0.9), size=4,show.legend = FALSE)+ 
   geom_hline(yintercept = 0, color="black")
+
+#save the plot as a png
+ggsave(filename="improved_graph_1.png",last_plot(), height=8, width=8)
+
 ```
-
-
-
-
